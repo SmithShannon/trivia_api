@@ -1,12 +1,15 @@
 import os
 from sqlalchemy import Column, String, Integer, create_engine
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 import json
 
 database_name = 'trivia'
-database_path = 'postgresql://{}/{}'.format('localhost:5432', database_name)
+database_login = 'postgres:abc'
+database_path = 'postgresql://{}@{}/{}'.format(database_login,'localhost:5432', database_name)
 
 db = SQLAlchemy()
+
 
 """
 setup_db(app)
@@ -17,7 +20,9 @@ def setup_db(app, database_path=database_path):
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     db.app = app
     db.init_app(app)
-    db.create_all()
+    migrate = Migrate(app,db,compare_type=True)
+
+
 
 """
 Question
@@ -27,10 +32,10 @@ class Question(db.Model):
     __tablename__ = 'questions'
 
     id = Column(Integer, primary_key=True)
-    question = Column(String)
-    answer = Column(String)
-    category = Column(String)
-    difficulty = Column(Integer)
+    question = Column(String,nullable=False)
+    answer = Column(String,nullable=False)
+    category = Column(Integer,db.ForeignKey('categories.id'),nullable=False)
+    difficulty = Column(Integer,nullable=False)
 
     def __init__(self, question, answer, category, difficulty):
         self.question = question
@@ -66,7 +71,9 @@ class Category(db.Model):
     __tablename__ = 'categories'
 
     id = Column(Integer, primary_key=True)
-    type = Column(String)
+    type = Column(String,nullable=False)
+
+    #relation = db.relationship('questions',backref='cat_to_quest',lazy=False)
 
     def __init__(self, type):
         self.type = type

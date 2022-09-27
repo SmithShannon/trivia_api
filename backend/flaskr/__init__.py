@@ -1,75 +1,97 @@
 import os
+import sys
+
 from flask import Flask, request, abort, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import func
 from flask_cors import CORS
 import random
+import json
 
 from models import setup_db, Question, Category
 
 QUESTIONS_PER_PAGE = 10
+CURRENT_CATEGORY = None
 
 def create_app(test_config=None):
     # create and configure the app
     app = Flask(__name__)
     setup_db(app)
+    cors = CORS(app,resource={'/*':{'origins':'*'}})
 
-    """
-    @TODO: Set up CORS. Allow '*' for origins. Delete the sample route after completing the TODOs
-    """
+    @app.after_request
+    def after_request(response):
+        response.headers.add('Access-Control-Allow-Headers','Content-Type,true')
+        response.headers.add('Access-Control-Allow-Methods','GET,PUT,POST,DELETE,OPTIONS')
+        return response
 
-    """
-    @TODO: Use the after_request decorator to set Access-Control-Allow
-    """
+    @app.route('/categories',methods=['GET'])
+    def get_categories():
+        cats = Category.query.all()
+        json = {}
+        for cat in cats:
+            json[str(cat.id)] = cat.type
+        return jsonify({'categories': json})
 
-    """
-    @TODO:
-    Create an endpoint to handle GET requests
-    for all available categories.
-    """
+    @app.route('/questions',methods=['GET','POST'])
+    def get_questions():
+        try:
+            page = int(request.args.get('page',1))
+            start = QUESTIONS_PER_PAGE*(page-1)
+            end = QUESTIONS_PER_PAGE*page
+
+            questions = Question.query.order_by(Question.id.asc()).all()
+            qlist = []
+            for q in questions[start:end]:
+                qlist.append(q.format())
+            cats = {}
+            for c in Category.query.all():
+                cats[c.id] = c.type
+            return jsonify({
+                'questions':qlist,
+                'total_questions':len(questions),
+                'categories':cats,
+                'current_category':CURRENT_CATEGORY
+            })
+        except:
+            print(sys.exc_info())
+
+    @app.route('/questions/<question_id>',methods=['DELETE'])
+    def delete_question(question_id):
+        try:
+            Question.query.filter_by(id=question_id).first().delete()
+            return get_questions()
+        except:
+            print(sys.exc_info())
 
 
-    """
-    @TODO:
-    Create an endpoint to handle GET requests for questions,
-    including pagination (every 10 questions).
-    This endpoint should return a list of questions,
-    number of total questions, current category, categories.
+    @app.route('/questions/create',methods=['POST'])
+    def create_question():
+        try:
+            form = json.loads(request.data)
+            question = Question(question=form['question'],answer=form['answer'],difficulty=form['difficulty'],category=int(form['category']))
+            question.insert()
+            return get_questions()
+        except:
+            print(sys.exc_info())
 
-    TEST: At this point, when you start the application
-    you should see questions and categories generated,
-    ten questions per page and pagination at the bottom of the screen for three pages.
-    Clicking on the page numbers should update the questions.
-    """
+    @app.route('/questions/search',methods=['POST'])
+    def get_questions_based_on_search():
+        try:
+            keyword = json.loads(request.data)
+            questions = Question.query.filter(func.lower(Question.question).contains(keyword['searchTerm'].lower())).all()
+            data = []
+            for q in questions:
+                data.append(q.format())
+            return jsonify({
+                'questions':data,
+                'total_questions':len(questions),
+                'current_category':CURRENT_CATEGORY
+            })
 
-    """
-    @TODO:
-    Create an endpoint to DELETE question using a question ID.
+        except:
+            print(sys.exc_info())
 
-    TEST: When you click the trash icon next to a question, the question will be removed.
-    This removal will persist in the database and when you refresh the page.
-    """
-
-    """
-    @TODO:
-    Create an endpoint to POST a new question,
-    which will require the question and answer text,
-    category, and difficulty score.
-
-    TEST: When you submit a question on the "Add" tab,
-    the form will clear and the question will appear at the end of the last page
-    of the questions list in the "List" tab.
-    """
-
-    """
-    @TODO:
-    Create a POST endpoint to get questions based on a search term.
-    It should return any questions for whom the search term
-    is a substring of the question.
-
-    TEST: Search by any phrase. The questions list will update to include
-    only question that include that string within their question.
-    Try using the word "title" to start.
-    """
 
     """
     @TODO:

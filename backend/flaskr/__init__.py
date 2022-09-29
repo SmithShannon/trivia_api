@@ -33,14 +33,23 @@ def create_app(test_config=None):
             json[str(cat.id)] = cat.type
         return jsonify({'categories': json})
 
-    @app.route('/questions',methods=['GET','POST'])
+    @app.route('/questions',methods=['GET'])
     def get_questions():
+        #Combined getQuestions with get Questions by Category
         try:
             page = int(request.args.get('page',1))
             start = QUESTIONS_PER_PAGE*(page-1)
             end = QUESTIONS_PER_PAGE*page
 
-            questions = Question.query.order_by(Question.id.asc()).all()
+            current_category = None if request.args.get('current_category',None) in ['null','undefined'] else request.args.get('current_category',None)
+            print(current_category)
+
+            questions = Question.query.order_by(Question.id.asc())
+            if current_category is None:
+                questions = questions.all()
+            else:
+                questions = questions.filter_by(category=current_category).all()
+
             qlist = []
             for q in questions[start:end]:
                 qlist.append(q.format())
@@ -51,7 +60,7 @@ def create_app(test_config=None):
                 'questions':qlist,
                 'total_questions':len(questions),
                 'categories':cats,
-                'current_category':CURRENT_CATEGORY
+                'current_category':current_category
             })
         except:
             print(sys.exc_info())
@@ -92,16 +101,6 @@ def create_app(test_config=None):
         except:
             print(sys.exc_info())
 
-
-    """
-    @TODO:
-    Create a GET endpoint to get questions based on category.
-
-    TEST: In the "List" tab / main screen, clicking on one of the
-    categories in the left column will cause only questions of that
-    category to be shown.
-    """
-
     """
     @TODO:
     Create a POST endpoint to get questions to play the quiz.
@@ -113,6 +112,10 @@ def create_app(test_config=None):
     one question at a time is displayed, the user is allowed to answer
     and shown whether they were correct or not.
     """
+
+    @app.route('/quizzes',methods=['POST'])
+    def play():
+        pass
 
     """
     @TODO:

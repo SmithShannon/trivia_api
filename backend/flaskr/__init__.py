@@ -11,7 +11,6 @@ import json
 from models import setup_db, Question, Category
 
 QUESTIONS_PER_PAGE = 10
-CURRENT_CATEGORY = None
 
 def create_app(test_config=None):
     # create and configure the app
@@ -27,11 +26,15 @@ def create_app(test_config=None):
 
     @app.route('/categories',methods=['GET'])
     def get_categories():
-        cats = Category.query.all()
-        json = {}
-        for cat in cats:
-            json[str(cat.id)] = cat.type
-        return jsonify({'categories': json})
+        try:
+            cats = Category.query.all()
+            json = {}
+            for cat in cats:
+                json[str(cat.id)] = cat.type
+            return jsonify({'categories': json})
+        except:
+            print(sys.exc_info())
+            abort(404)
 
     @app.route('/questions',methods=['GET'])
     def get_questions():
@@ -42,7 +45,6 @@ def create_app(test_config=None):
             end = QUESTIONS_PER_PAGE*page
 
             current_category = None if request.args.get('current_category',None) in ['null','undefined'] else request.args.get('current_category',None)
-            print(current_category)
 
             questions = Question.query.order_by(Question.id.asc())
             if current_category is None:
@@ -51,6 +53,10 @@ def create_app(test_config=None):
                 questions = questions.filter_by(category=current_category).all()
 
             qlist = []
+
+            if len(questions[start:end]) == 0:
+                abort(404)
+
             for q in questions[start:end]:
                 qlist.append(q.format())
             cats = {}
@@ -64,14 +70,19 @@ def create_app(test_config=None):
             })
         except:
             print(sys.exc_info())
+            abort(404)
 
     @app.route('/questions/<question_id>',methods=['DELETE'])
     def delete_question(question_id):
         try:
-            Question.query.filter_by(id=question_id).first().delete()
-            return get_questions()
+            q = Question.query.filter_by(id=question_id).first()
+            if q is None:
+                abort(422)
+            q.delete()
+            return jsonify({'message':'Deleted'})
         except:
             print(sys.exc_info())
+            abort(422)
 
 
     @app.route('/questions/create',methods=['POST'])
@@ -83,6 +94,7 @@ def create_app(test_config=None):
             return get_questions()
         except:
             print(sys.exc_info())
+            abort(422)
 
     @app.route('/questions/search',methods=['POST'])
     def get_questions_based_on_search():
@@ -95,33 +107,51 @@ def create_app(test_config=None):
             return jsonify({
                 'questions':data,
                 'total_questions':len(questions),
-                'current_category':CURRENT_CATEGORY
+                'current_category':None
             })
 
         except:
             print(sys.exc_info())
+            abort(404)
 
-    """
-    @TODO:
-    Create a POST endpoint to get questions to play the quiz.
-    This endpoint should take category and previous question parameters
-    and return a random questions within the given category,
-    if provided, and that is not one of the previous questions.
-
-    TEST: In the "Play" tab, after a user selects "All" or a category,
-    one question at a time is displayed, the user is allowed to answer
-    and shown whether they were correct or not.
-    """
 
     @app.route('/quizzes',methods=['POST'])
     def play():
-        pass
+        try:
+            r = json.loads(request.data)
+            questions = Question.query.order_by(Question.id.asc())
+            if r['quiz_category'] != 0:
+                questions = questions.filter_by(category=r['quiz_category'])
+            questions = questions.filter(Question.id.notin_(r['previous_questions'])).all()
+            if len(questions) == 0:
+                return jsonify({
+                    "question": False
+                })
+            else:
+                return jsonify({
+                    "question":questions[random.randint(0,len(questions)-1)].format()
+                })
+        except:
+            print(sys.exc_info())
+            abort(404)
 
-    """
-    @TODO:
-    Create error handlers for all expected errors
-    including 404 and 422.
-    """
+
+
+    @app.errorhandler(404)
+    def error_404(error):
+        return jsonify({
+            'success':False,
+            'error':404,
+            'message':"Not found"
+        }), 404
+
+    @app.errorhandler(422)
+    def error_422(error):
+        return jsonify({
+            'success':False,
+            'error':422,
+            'message':"Unable to process"
+        }), 422
 
     return app
 

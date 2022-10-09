@@ -123,6 +123,7 @@ def create_app(test_config=None):
             if r['quiz_category'] != 0:
                 questions = questions.filter_by(category=r['quiz_category']['id'])
             questions = questions.filter(Question.id.notin_(r['previous_questions'])).all()
+            print(r['previous_questions'])
             if len(questions) == 0:
                 return jsonify({
                     "question": False

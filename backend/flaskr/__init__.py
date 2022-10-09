@@ -44,7 +44,8 @@ def create_app(test_config=None):
             start = QUESTIONS_PER_PAGE*(page-1)
             end = QUESTIONS_PER_PAGE*page
 
-            current_category = None if request.args.get('current_category',None) in ['null','undefined'] else request.args.get('current_category',None)
+            current_category = None if request.args.get('current_category',None) in ['null','undefined'] \
+                else request.args.get('current_category',None)
 
             questions = Question.query.order_by(Question.id.asc())
             if current_category is None:
@@ -89,7 +90,11 @@ def create_app(test_config=None):
     def create_question():
         try:
             form = json.loads(request.data)
-            question = Question(question=form['question'],answer=form['answer'],difficulty=form['difficulty'],category=int(form['category']))
+            question = Question(
+                question=form['question'],
+                answer=form['answer'],
+                difficulty=form['difficulty'],
+                category=int(form['category']))
             question.insert()
             return get_questions()
         except:
@@ -100,7 +105,8 @@ def create_app(test_config=None):
     def get_questions_based_on_search():
         try:
             keyword = json.loads(request.data)
-            questions = Question.query.filter(func.lower(Question.question).contains(keyword['searchTerm'].lower())).all()
+            questions = Question.query.filter(func.lower(Question.question).contains(keyword['searchTerm'].lower()))
+            questions = questions.all()
             data = []
             for q in questions:
                 data.append(q.format())
@@ -153,6 +159,22 @@ def create_app(test_config=None):
             'error':422,
             'message':"Unable to process"
         }), 422
+
+    @app.errorhandler(500)
+    def error_500(error):
+        return jsonify({
+            'success':False,
+            'error':500,
+            'message':"Server Error"
+        }), 500
+
+    @app.errorhandler(400)
+    def error_400(error):
+        return jsonify({
+            'success':False,
+            'error':400,
+            'message':"Bad Request"
+        }), 400
 
     return app
 

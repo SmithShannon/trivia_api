@@ -15,7 +15,7 @@ class TriviaTestCase(unittest.TestCase):
         """Define test variables and initialize app."""
         self.app = create_app()
         self.client = self.app.test_client
-        self.database_name = "trivia_test"
+        self.database_name = 'trivia'#"trivia_test"
         self.database_path = "postgresql://{}@{}/{}".format('postgres:abc','localhost:5432', self.database_name)
         setup_db(self.app, self.database_path)
 
@@ -37,6 +37,11 @@ class TriviaTestCase(unittest.TestCase):
 
         self.assertEqual(res.status_code,200)
         self.assertEqual(len(data['categories']),len(Category.query.all()))
+
+    def test_fail_get_categories(self):
+        res = self.client().post('/categories',json={})
+
+        self.assertEqual(res.status_code,405)
 
 
     def test_get_questions(self):
@@ -96,8 +101,9 @@ class TriviaTestCase(unittest.TestCase):
         previous_questions = []
         count = 0
         while playing:
-            res = self.client().post('/quizzes',json={'previous_questions':previous_questions,'quiz_category':4})
+            res = self.client().post('/quizzes',json={'previous_questions':previous_questions,'quiz_category':{'id':4}})
             data = json.loads(res.data)
+            print(data)
             playing = True if data['question'] else False
             self.assertEqual(res.status_code,200)
             if playing:
@@ -106,6 +112,11 @@ class TriviaTestCase(unittest.TestCase):
                 count += 1
                 previous_questions.append(data['question']['id'])
         self.assertEqual(count,2)
+
+    def test_fail_paly(self):
+        res = self.client().post('/quizzes',json={})
+        self.assertEqual(res.status_code,404)
+
     def test_404error(self):
         res = self.client().get('/questions?page=10')
         data = json.loads(res.data)
